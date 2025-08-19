@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>성적 입력 시스템</title>
+
+  <!-- 모바일 반응형 & iOS 안전영역 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0050ef" />
+  <!-- iOS 홈 화면 전체창 옵션 (선택) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <style>
+    :root{
+      --blue-strong: #0050ef;
+      --btn-min-height: 48px; /* 터치 최소 44px 이상 */
+    }
+
+    /* 기본 레이아웃: iOS notch 안전영역 고려 */
+    body {
+      /* iOS에서 fixed 배경 끊김이 있어 fixed 제거 */
+      background: url('bsod_custom.png') no-repeat center center;
+      background-size: cover;
+      font-family: 'Malgun Gothic', system-ui, -apple-system, Segoe UI, Arial, sans-serif;
+      margin: 0;
+      padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      -webkit-tap-highlight-color: transparent;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .login-container {
+      width: min(360px, 92vw);
+      margin: clamp(48px, 10vh, 120px) auto;
+      background-color: #fff;
+      border: 1px solid #ccc;
+      padding: 24px;
+      border-radius: 12px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+    }
+    .login-container h2 { margin-bottom: 16px; font-size: clamp(18px, 2.4vw + 12px, 22px); }
+    .login-container input[type="text"],
+    .login-container input[type="password"] {
+      width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; font-size: 16px;
+    }
+    .remember-box { margin: 6px 0 10px 0; display: flex; align-items: center; gap: 8px; font-size: 14px; }
+    .login-container button {
+      width: 100%; background-color: #1d75bd; color: #fff; border: none; padding: 0 16px;
+      min-height: var(--btn-min-height); font-size: 16px; border-radius: 10px; cursor: pointer; touch-action: manipulation;
+    }
+    .login-container button:active { transform: translateY(1px); }
+
+    #container { padding: 20px; display: none; max-width: 960px; margin: 0 auto; }
+
+    .grades-table {
+      width: 100%; border-collapse: collapse; font-family: 'Segoe UI','Malgun Gothic',sans-serif;
+      background-color: #fff; box-shadow: 0 0 4px rgba(0, 0, 0, 0.1); border-radius: 12px; overflow: hidden;
+      font-size: clamp(14px, 1.5vw + 10px, 16px);
+    }
+    .grades-table th { background-color: #eaf1fb; font-weight: 700; border: 1px solid #ccc; padding: clamp(8px, 1.2vw + 6px, 12px); text-align: center; white-space: nowrap; }
+    .grades-table td { border: 1px solid #ccc; padding: clamp(8px, 1.2vw + 6px, 12px); text-align: center; background-color: #fefefe; white-space: nowrap; }
+
+    /* 모바일 가로 스크롤 */
+    #gradesArea { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 12px; }
+
+    .upgrade { animation: pulse 0.35s ease; }
+    @keyframes pulse { 0% { background-color:#fff7cc; transform:scale(1.02);} 100% { background-color:#fff; transform:scale(1);} }
+
+    .error-box {
+      position: fixed; left: 50%; transform: translateX(-50%);
+      width: min(420px, 92vw);
+      background:#fefefe; border:1px solid #aaa; border-radius: 10px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.25); z-index: 9999; top: 12dvh;
+    }
+    .error-header { background:#e5e7eb; color:#111; padding: 8px 12px; font-weight: bold; border-bottom:1px solid #ddd; border-radius: 10px 10px 0 0; font-size: 14px; }
+    .error-content { display:flex; align-items:flex-start; padding: 14px; font-size: 13px; color:#111; line-height:1.45; min-height:48px; gap:10px; }
+    .error-content img { width: 28px; height: 28px; margin-top: 2px; }
+    .error-buttons { display:flex; justify-content:center; padding: 10px 12px 14px; border-top: 1px solid #eee; }
+    .error-buttons button { padding: 8px 16px; font-size: 14px; border-radius: 8px; border: 1px solid #d1d5db; background:#f9fafb; cursor:pointer; min-height: 40px; }
+
+    #startButton {
+      margin-top: 16px; background:#f2f2f2; color:#333; border:1px solid #ccc; padding: 0 18px;
+      min-height: var(--btn-min-height); font-size: 16px; border-radius: 10px; cursor: pointer;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06); transition: background-color 0.2s ease; touch-action: manipulation;
+    }
+    #startButton:hover { background:#e8e8e8; }
+    #startButton:active { transform: translateY(1px); }
+
+    /* --- 오버레이들 (100dvh로 모바일 주소창 이슈 대응) --- */
+
+    #blueScreen, #whiteFlash, #powerCycle, #loadingScreen {
+      width: 100vw; height: 100dvh; /* ← 핵심: 100vh 대신 100dvh */
+    }
+
+    #blueScreen {
+      display: none; position: fixed; top: 0; left: 0; z-index: 10000;
+      background: var(--blue-strong); color: #fff; align-items: center; justify-content: center;
+      font-size: clamp(40px, 9vw, 88px); font-weight: 900; letter-spacing: 4px;
+    }
+
+    #whiteFlash {
+      display:none; position:fixed; top:0; left:0; background:#fff; z-index:10001;
+    }
+
+    #powerCycle {
+      display:none; position:fixed; top:0; left:0; z-index:10002; background: #0050ef;
+    }
+    #powerCycle.white { background:#fff; }
+    #powerCycle.blue  { background:#0050ef; }
+
+    #loadingScreen {
+      display:none; position:fixed; top:0; left:0; z-index:10003;
+      background: rgba(0,0,0,0.92); color:#fff;
+      align-items: center; justify-content: center; flex-direction: column; gap: 16px; font-weight: 600; text-align: center; padding: 0 20px;
+    }
+    .loader { width: clamp(44px, 10vw, 64px); height: clamp(44px, 10vw, 64px); border:6px solid #fff; border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg);} }
+    .progress { width: min(420px, 84vw); height: 10px; background: #262626; border-radius: 9999px; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.13); }
+    .progress .bar { width: 0%; height: 100%; background: var(--blue-strong); transition: width 0.08s linear; }
+
+    /* 과도한 모션을 줄이는 사용자 설정 존중 */
+    @media (prefers-reduced-motion: reduce) {
+      .upgrade { animation: none; }
+      .loader { animation-duration: 1.6s; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container" id="loginPage">
+    <h2>로그인</h2>
+    <input type="text" placeholder="교수 이름" id="username" value="이과인의 밤" />
+    <input type="password" placeholder="비밀번호" id="password" value="password" />
+    <div class="remember-box">
+      <input type="checkbox" id="remember" />
+      <label for="remember">아이디 저장</label>
+    </div>
+    <button onclick="login()">로그인</button>
+  </div>
+
+  <div id="container">
+    <button id="startButton" onclick="startErrorSequence()">성적 입력하기</button>
+    <div id="gradesArea"></div>
+  </div>
+
+  <!-- 오버레이 -->
+  <div id="blueScreen">ERROR</div>
+  <div id="whiteFlash"></div>
+  <div id="powerCycle"></div>
+  <div id="loadingScreen">
+    <div class="loader" aria-hidden="true"></div>
+    <div>복구중...</div>
+    <div class="progress" aria-hidden="true"><div class="bar" id="progressBar"></div></div>
+  </div>
+
+  <script>
+    // 패시브 스크롤 최적화(모바일 성능)
+    window.addEventListener('touchmove', ()=>{}, {passive:true});
+
+    const students = ["김민준","이서연","박지후","최예준","정하윤","한지우","조민서","이준호","송다은","홍서준","임지민","배예린","윤하람","오유진","강도윤"];
+    const studentData = [];
+
+    function maskName(n){ if(n.length===2) return n[0]+"*"; if(n.length>=3) return n[0]+"*"+n.slice(2); return n; }
+    function generateStudentID(){ const is202=Math.random()<0.5; const prefix=is202?"202":"201"; let id=prefix; const firstDigit=is202?Math.floor(Math.random()*5)+1:Math.floor(Math.random()*3)+7; id+=firstDigit; for(let i=0;i<6;i++) id+=Math.floor(Math.random()*10); return id; }
+    function getRandomGrade(){ const g=["B","B+","C","C+","D","D+"]; return g[Math.floor(Math.random()*g.length)]; }
+
+    function initializeStudentData(){
+      studentData.length=0;
+      students.forEach(n=>studentData.push({name:maskName(n), id:generateStudentID(), grades:[getRandomGrade()]}));
+    }
+
+    function renderGrades(){
+      const el=document.getElementById("gradesArea");
+      let html="<table class='grades-table'><tr><th>이름</th><th>학번</th><th>공소첨화</th></tr>";
+      studentData.forEach(s=>{ html+=`<tr><td>${s.name}</td><td>${s.id}</td><td>${s.grades[0]}</td></tr>`; });
+      html+="</table>";
+      el.innerHTML=html;
+    }
+
+    function createErrorBox(msg){
+      const box=document.createElement('div');
+      box.className='error-box';
+      box.style.top=Math.floor(Math.random()*(window.innerHeight-200))+'px';
+      box.style.left=Math.floor(Math.random()*(window.innerWidth-420))+'px';
+      box.innerHTML=`
+        <div class="error-header">웹 페이지 메시지</div>
+        <div class="error-content">
+          <img src="https://icons.iconarchive.com/icons/oxygen-icons.org/oxygen/48/Status-dialog-warning-icon.png" alt="경고">
+          <div>${msg}</div>
+        </div>
+        <div class="error-buttons"><button onclick="this.parentElement.parentElement.remove()">확인</button></div>`;
+      document.body.appendChild(box);
+    }
+    function removeAllErrorBoxes(){ document.querySelectorAll('.error-box').forEach(b=>b.remove()); }
+
+    /* 블루스크린 */
+    function showBlueScreen(duration=300,next){
+      const blue=document.getElementById("blueScreen");
+      blue.style.display="flex";
+      setTimeout(()=>{ blue.style.display="none"; next&&next(); }, duration);
+    }
+
+    /* 흰 화면 */
+    function showWhiteScreen(duration=200,next){
+      const white=document.getElementById("whiteFlash");
+      white.style.display="block";
+      setTimeout(()=>{ white.style.display="none"; next&&next(); }, duration);
+    }
+
+    function startErrorSpam(done){
+      let count=0;
+      const msgs=["g4_path                   ٴ   ۾    js/wrest.js","웹 페이지 오류: 알 수 없는 경로 감지","파일을 찾을 수 없습니다: \\system\\wrest.js"];
+      const t=setInterval(()=>{
+        createErrorBox(msgs[Math.floor(Math.random()*msgs.length)]);
+        if(++count>=20){
+          clearInterval(t);
+          setTimeout(()=>{ removeAllErrorBoxes(); setTimeout(()=>done&&done(), 300); }, 800);
+        }
+      },200);
+    }
+
+    /* 전원 꺼짐 효과 */
+    function powerOffEffectOnce(interval=120,next){
+      const pc=document.getElementById("powerCycle");
+      pc.style.display="block";
+      pc.classList.add('white'); pc.classList.remove('blue');
+      setTimeout(()=>{
+        pc.classList.remove('white'); pc.classList.add('blue');
+        setTimeout(()=> next&&next(), 160);
+      }, interval);
+    }
+
+    /* 로딩 */
+    function showLoadingScreen(totalMs=2000,onDone){
+      const loading=document.getElementById("loadingScreen");
+      const bar=document.getElementById("progressBar");
+      loading.style.display="flex";
+      let start=null;
+      function step(ts){
+        if(!start) start=ts;
+        const pct=Math.min(100, Math.floor(((ts-start)/totalMs)*100));
+        bar.style.width=pct+"%";
+        if(pct<100) requestAnimationFrame(step);
+        else{
+          setTimeout(()=>{ loading.style.display="none"; document.getElementById("powerCycle").style.display="none"; onDone&&onDone(); },150);
+        }
+      }
+      requestAnimationFrame(step);
+    }
+
+    /* 성적 순차 업그레이드 */
+    function sequentialUpgradeGrades(){
+      const rows=document.querySelectorAll(".grades-table tr");
+      let i=1, highlightMs=120, nextDelayMs=33;
+      (function step(){
+        if(i>=rows.length) return;
+        const cell=rows[i].children[2];
+        studentData[i-1].grades=["A+"]; cell.textContent="A+";
+        cell.classList.add("upgrade");
+        setTimeout(()=>{ cell.classList.remove("upgrade"); i++; setTimeout(step,nextDelayMs); }, highlightMs);
+      })();
+    }
+
+    function startErrorSequence(){
+      // 순서: 흰 플래시 → 블루스크린 → 에러스팸 → 전원꺼짐 → 로딩 → A+
+      showWhiteScreen(180, ()=>{
+        showBlueScreen(300, ()=>{
+          startErrorSpam(()=>{
+            powerOffEffectOnce(120, ()=>{
+              showLoadingScreen(2000, ()=>{
+                sequentialUpgradeGrades();
+              });
+            });
+          });
+        });
+      });
+    }
+
+    function login(){
+      document.getElementById("loginPage").style.display="none";
+      document.getElementById("container").style.display="block";
+      initializeStudentData();
+      renderGrades();
+    }
+  </script>
+</body>
+</html>
